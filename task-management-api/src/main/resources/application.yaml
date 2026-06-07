@@ -1,0 +1,16 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: task-management-api
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/taskdb
+    username: rambo
+    password: 12345
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
