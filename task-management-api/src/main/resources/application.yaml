@@ -6,11 +6,12 @@ spring:
     name: task-management-api
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/taskdb
-    username: rambo
-    password: 12345
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/taskdb}
+    username: ${SPRING_DATASOURCE_USERNAME:rambo}
+    password: ${SPRING_DATASOURCE_PASSWORD:12345}
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     show-sql: true
