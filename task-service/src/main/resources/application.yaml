@@ -1,0 +1,38 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: task-service
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/taskdb}
+    username: ${SPRING_DATASOURCE_USERNAME:rambo}
+    password: ${SPRING_DATASOURCE_PASSWORD:12345}
+
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      repositories:
+        enabled: false
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 5m
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+services:
+  notification:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
+    connect-timeout: ${NOTIFICATION_SERVICE_CONNECT_TIMEOUT:2s}
+    read-timeout: ${NOTIFICATION_SERVICE_READ_TIMEOUT:3s}
+    retry:
+      max-attempts: ${NOTIFICATION_SERVICE_RETRY_MAX_ATTEMPTS:2}
+      delay-millis: ${NOTIFICATION_SERVICE_RETRY_DELAY_MILLIS:500}

@@ -1,31 +1,56 @@
 services:
-  app:
+  task-service:
     build:
-      context: ./task-management-api
-    container_name: task-management-api
+      context: ./task-service
+    container_name: task-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/taskdb
-      SPRING_DATASOURCE_USERNAME: rambo
-      SPRING_DATASOURCE_PASSWORD: 12345
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      NOTIFICATION_SERVICE_URL: http://notification-service:8083
     ports:
       - "8082:8081"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      notification-service:
+        condition: service_started
+
+  notification-service:
+    build:
+      context: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8083:8083"
 
   postgres:
     image: postgres:16
     container_name: postgres-db
     environment:
-      POSTGRES_USER: rambo
-      POSTGRES_PASSWORD: 12345
-      POSTGRES_DB: taskdb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rambo -d taskdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
