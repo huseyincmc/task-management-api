@@ -12,6 +12,7 @@ The goal of this project is not only to build a task API, but also to learn how 
 - Spring Data JPA
 - Spring Validation
 - Spring Security
+- Spring Cloud Gateway
 - Spring Cloud Netflix Eureka
 - PostgreSQL 16
 - Redis 7.4
@@ -29,21 +30,27 @@ The goal of this project is not only to build a task API, but also to learn how 
 - PostgreSQL integration
 - Redis cache integration
 - Dockerized Spring Boot services
-- Docker Compose setup for discovery-server + task-service + notification-service + PostgreSQL + Redis
+- Docker Compose setup for api-gateway + discovery-server + task-service + notification-service + PostgreSQL + Redis
 - Persistent PostgreSQL data with Docker volume
 - Basic synchronous REST communication between services
 - Service discovery with Eureka
+- API Gateway routing through Eureka service names
 
 ## Services
 
 | Service | Local Port | Docker Port | Responsibility |
 | --- | --- | --- | --- |
+| `api-gateway` | `8080` | `8090 -> 8080` | Single external entry point and request router |
 | `discovery-server` | `8761` | `8761` | Eureka registry for service discovery |
 | `task-service` | `8081` | `8082` | Manages tasks, PostgreSQL data, Redis cache/counters/events |
 | `notification-service` | `8083` | `8083` | Stores task notification requests and handles idempotency |
 
 Current service-to-service flow:
 
+- External clients call `api-gateway`
+- `api-gateway` resolves target services through Eureka
+- `api-gateway` routes `/api/tasks/**` to `task-service`
+- `api-gateway` routes `/api/notifications/**` to `notification-service`
 - `task-service` creates a task
 - `task-service` resolves `notification-service` through Eureka
 - `task-service` sends a REST request using the logical service name `http://notification-service`
@@ -65,6 +72,29 @@ Eureka dashboard:
 ```text
 http://localhost:8761
 ```
+
+## API Gateway
+
+`api-gateway` is the single external entry point for HTTP clients:
+
+- `/api/tasks/**` is routed to `lb://task-service`
+- `/api/notifications/**` is routed to `lb://notification-service`
+- `lb://` means the target instance is selected through Spring Cloud LoadBalancer and Eureka
+
+Gateway URL:
+
+```text
+http://localhost:8090
+```
+
+Recommended external access:
+
+```text
+http://localhost:8090/api/tasks
+http://localhost:8090/api/notifications
+```
+
+Direct service ports are still exposed for learning and debugging, but the gateway is the preferred client entry point.
 
 ## Redis Cache Behavior
 
@@ -94,6 +124,11 @@ Redis Pub/Sub is used for simple task lifecycle notifications:
 
 ```text
 task-management-api/
+├── api-gateway/
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/java/com/business/project/gateway/
+│       └── config/
 ├── discovery-server/
 │   ├── Dockerfile
 │   ├── pom.xml
@@ -161,10 +196,22 @@ docker compose up -d --build
 Dockerized task API URL:
 
 ```text
+http://localhost:8090/api/tasks
+```
+
+Direct task service URL:
+
+```text
 http://localhost:8082/api/tasks
 ```
 
 Dockerized notification API URL:
+
+```text
+http://localhost:8090/api/notifications
+```
+
+Direct notification service URL:
 
 ```text
 http://localhost:8083/api/notifications
@@ -192,6 +239,7 @@ Useful Docker Compose commands:
 
 ```powershell
 docker compose ps
+docker compose logs api-gateway
 docker compose logs discovery-server
 docker compose logs task-service
 docker compose logs notification-service
@@ -217,10 +265,10 @@ docker compose down -v
 
 ## Run Locally From IntelliJ
 
-Start PostgreSQL, Redis, discovery-server, and notification-service with Docker Compose:
+Start PostgreSQL, Redis, discovery-server, api-gateway, and notification-service with Docker Compose:
 
 ```powershell
-docker compose up -d postgres redis discovery-server notification-service
+docker compose up -d postgres redis discovery-server api-gateway notification-service
 ```
 
 Then run `TaskManagementApiApplication` from IntelliJ.
@@ -229,6 +277,12 @@ Local API URL:
 
 ```text
 http://localhost:8081/api/tasks
+```
+
+Local gateway URL:
+
+```text
+http://localhost:8090/api/tasks
 ```
 
 The services use Spring profiles to separate local and Docker configuration:
@@ -245,6 +299,8 @@ task-service/src/main/resources/application-local.yaml
 task-service/src/main/resources/application-docker.yaml
 notification-service/src/main/resources/application-local.yaml
 notification-service/src/main/resources/application-docker.yaml
+api-gateway/src/main/resources/application-local.yaml
+api-gateway/src/main/resources/application-docker.yaml
 ```
 
 Docker Compose sets `SPRING_PROFILES_ACTIVE=docker` for the service containers. Local IntelliJ runs use the default `local` profile unless you override it.
