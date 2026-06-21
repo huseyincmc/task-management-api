@@ -5,15 +5,11 @@ spring:
   application:
     name: task-service
 
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/taskdb}
-    username: ${SPRING_DATASOURCE_USERNAME:rambo}
-    password: ${SPRING_DATASOURCE_PASSWORD:12345}
+  profiles:
+    default: local
 
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:localhost}
-      port: ${SPRING_REDIS_PORT:6379}
       repositories:
         enabled: false
 
@@ -30,9 +26,18 @@ spring:
 
 services:
   notification:
-    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
     connect-timeout: ${NOTIFICATION_SERVICE_CONNECT_TIMEOUT:2s}
     read-timeout: ${NOTIFICATION_SERVICE_READ_TIMEOUT:3s}
     retry:
       max-attempts: ${NOTIFICATION_SERVICE_RETRY_MAX_ATTEMPTS:2}
       delay-millis: ${NOTIFICATION_SERVICE_RETRY_DELAY_MILLIS:500}
+    circuit-breaker:
+      failure-rate-threshold: ${NOTIFICATION_SERVICE_CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD:50}
+      minimum-number-of-calls: ${NOTIFICATION_SERVICE_CIRCUIT_BREAKER_MINIMUM_NUMBER_OF_CALLS:4}
+      sliding-window-size: ${NOTIFICATION_SERVICE_CIRCUIT_BREAKER_SLIDING_WINDOW_SIZE:4}
+      wait-duration-in-open-state: ${NOTIFICATION_SERVICE_CIRCUIT_BREAKER_WAIT_DURATION_IN_OPEN_STATE:10s}
+      permitted-number-of-calls-in-half-open-state: ${NOTIFICATION_SERVICE_CIRCUIT_BREAKER_HALF_OPEN_CALLS:2}
+    rate-limiter:
+      limit-for-period: ${NOTIFICATION_SERVICE_RATE_LIMIT_FOR_PERIOD:3}
+      limit-refresh-period: ${NOTIFICATION_SERVICE_RATE_LIMIT_REFRESH_PERIOD:10s}
+      timeout-duration: ${NOTIFICATION_SERVICE_RATE_LIMIT_TIMEOUT_DURATION:0s}

@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/${NOTIFICATION_POSTGRES_DB:notificationdb}
+    username: ${POSTGRES_USER:?POSTGRES_USER is required}
+    password: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka
+  instance:
+    hostname: notification-service

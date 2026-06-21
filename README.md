@@ -12,6 +12,7 @@ The goal of this project is not only to build a task API, but also to learn how 
 - Spring Data JPA
 - Spring Validation
 - Spring Security
+- Spring Cloud Netflix Eureka
 - PostgreSQL 16
 - Redis 7.4
 - Docker
@@ -28,22 +29,42 @@ The goal of this project is not only to build a task API, but also to learn how 
 - PostgreSQL integration
 - Redis cache integration
 - Dockerized Spring Boot services
-- Docker Compose setup for task-service + notification-service + PostgreSQL + Redis
+- Docker Compose setup for discovery-server + task-service + notification-service + PostgreSQL + Redis
 - Persistent PostgreSQL data with Docker volume
 - Basic synchronous REST communication between services
+- Service discovery with Eureka
 
 ## Services
 
 | Service | Local Port | Docker Port | Responsibility |
 | --- | --- | --- | --- |
+| `discovery-server` | `8761` | `8761` | Eureka registry for service discovery |
 | `task-service` | `8081` | `8082` | Manages tasks, PostgreSQL data, Redis cache/counters/events |
-| `notification-service` | `8083` | `8083` | Receives task notification requests and logs them |
+| `notification-service` | `8083` | `8083` | Stores task notification requests and handles idempotency |
 
 Current service-to-service flow:
 
 - `task-service` creates a task
-- `task-service` sends a REST request to `notification-service`
-- `notification-service` receives the request and logs the notification
+- `task-service` resolves `notification-service` through Eureka
+- `task-service` sends a REST request using the logical service name `http://notification-service`
+- `notification-service` receives the request and stores the notification in its own database
+
+## Service Discovery
+
+Eureka is used as the service registry:
+
+- `discovery-server` runs on port `8761`
+- `task-service` registers itself as `task-service`
+- `notification-service` registers itself as `notification-service`
+- `task-service` calls notification with the logical URL `http://notification-service/api/notifications`
+
+This removes the need for `task-service` to know the physical host and port of `notification-service`. The load-balanced `RestClient.Builder` resolves the logical service name through Eureka.
+
+Eureka dashboard:
+
+```text
+http://localhost:8761
+```
 
 ## Redis Cache Behavior
 
@@ -73,6 +94,10 @@ Redis Pub/Sub is used for simple task lifecycle notifications:
 
 ```text
 task-management-api/
+├── discovery-server/
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/java/com/business/project/discovery/
 ├── docker-compose.yml
 ├── README.md
 ├── task-service/
@@ -87,12 +112,13 @@ task-management-api/
 │       ├── exception/
 │       ├── repository/
 │       └── service/
-└── notification-service/
+├── notification-service/
     ├── Dockerfile
     ├── pom.xml
     └── src/main/java/com/business/project/notification/
         ├── controller/
-        └── dto/
+│       └── dto/
+└── docker/
 ```
 
 ## Task API Endpoints
@@ -112,7 +138,9 @@ task-management-api/
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| POST | `/api/notifications` | Receive and log a task notification |
+| POST | `/api/notifications` | Receive and store a task notification |
+| GET | `/api/notifications` | List stored notifications |
+| GET | `/api/notifications/{id}` | Get notification by id |
 
 ## Run With Docker Compose
 
@@ -142,6 +170,12 @@ Dockerized notification API URL:
 http://localhost:8083/api/notifications
 ```
 
+Eureka dashboard URL:
+
+```text
+http://localhost:8761
+```
+
 PostgreSQL connection from host machine for local development:
 
 ```text
@@ -158,6 +192,7 @@ Useful Docker Compose commands:
 
 ```powershell
 docker compose ps
+docker compose logs discovery-server
 docker compose logs task-service
 docker compose logs notification-service
 docker compose logs postgres
@@ -182,10 +217,10 @@ docker compose down -v
 
 ## Run Locally From IntelliJ
 
-Start PostgreSQL, Redis, and notification-service with Docker Compose:
+Start PostgreSQL, Redis, discovery-server, and notification-service with Docker Compose:
 
 ```powershell
-docker compose up -d postgres redis notification-service
+docker compose up -d postgres redis discovery-server notification-service
 ```
 
 Then run `TaskManagementApiApplication` from IntelliJ.
@@ -196,24 +231,42 @@ Local API URL:
 http://localhost:8081/api/tasks
 ```
 
-The local task-service uses the default datasource and service URLs from `application.yaml` unless environment variables are provided:
+The services use Spring profiles to separate local and Docker configuration:
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/taskdb
-    username: ${SPRING_DATASOURCE_USERNAME:rambo}
-    password: ${SPRING_DATASOURCE_PASSWORD:12345}
+| Profile | Used by | Purpose |
+| --- | --- | --- |
+| `local` | Default when running from IntelliJ | Uses `localhost` for PostgreSQL, Redis, and service URLs |
+| `docker` | Set by Docker Compose | Uses Docker service names such as `postgres`, `redis`, `discovery-server`, and logical service names |
 
-services:
-  notification:
-    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
-```
-
-When the application runs inside Docker, Docker Compose overrides these values with environment variables and uses:
+Common settings stay in each service's `application.yaml`. Environment-specific settings live in:
 
 ```text
-jdbc:postgresql://postgres:5432/taskdb
+task-service/src/main/resources/application-local.yaml
+task-service/src/main/resources/application-docker.yaml
+notification-service/src/main/resources/application-local.yaml
+notification-service/src/main/resources/application-docker.yaml
+```
+
+Docker Compose sets `SPRING_PROFILES_ACTIVE=docker` for the service containers. Local IntelliJ runs use the default `local` profile unless you override it.
+
+The `.env` file provides Docker Compose variables such as database names and credentials. It is ignored by Git; keep real secrets out of the repository.
+
+Required Docker Compose variables:
+
+```text
+POSTGRES_USER
+POSTGRES_PASSWORD
+POSTGRES_DB
+```
+
+Optional database and resilience variables are documented in `.env.example`. If omitted, the service defaults are used.
+
+Configuration precedence in this project:
+
+```text
+Environment variables override profile files.
+Profile files override common application.yaml.
+application.yaml contains shared defaults.
 ```
 
 ## Example Create Task Request

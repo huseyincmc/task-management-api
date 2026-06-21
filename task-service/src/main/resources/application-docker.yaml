@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+    username: ${POSTGRES_USER:?POSTGRES_USER is required}
+    password: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+services:
+  notification:
+    url: http://notification-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka
+  instance:
+    hostname: task-service

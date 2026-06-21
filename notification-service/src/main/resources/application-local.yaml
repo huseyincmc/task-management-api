@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${NOTIFICATION_POSTGRES_DB:notificationdb}
+    username: ${POSTGRES_USER:rambo}
+    password: ${POSTGRES_PASSWORD:12345}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka}
+  instance:
+    hostname: localhost
