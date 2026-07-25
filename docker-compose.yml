@@ -16,6 +16,8 @@ services:
         condition: service_started
       notification-service:
         condition: service_started
+      composition-service:
+        condition: service_started
 
   discovery-server:
     build:
@@ -60,6 +62,22 @@ services:
       postgres:
         condition: service_healthy
       discovery-server:
+        condition: service_started
+
+  composition-service:
+    build:
+      context: ./composition-service
+    container_name: composition-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8084:8084"
+    depends_on:
+      discovery-server:
+        condition: service_started
+      task-service:
+        condition: service_started
+      notification-service:
         condition: service_started
 
   postgres:

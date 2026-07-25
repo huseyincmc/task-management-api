@@ -1,0 +1,9 @@
+eureka:
+  client:
+    enabled: false
+
+services:
+  task:
+    url: http://task-service
+  notification:
+    url: http://notification-service

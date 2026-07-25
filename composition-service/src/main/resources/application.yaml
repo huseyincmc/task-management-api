@@ -1,0 +1,15 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: composition-service
+
+  profiles:
+    default: local
+
+services:
+  task:
+    url: http://task-service
+  notification:
+    url: http://notification-service

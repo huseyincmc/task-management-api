@@ -50,6 +50,19 @@ public class GatewayRoutesConfig {
                         .metadata(CONNECT_TIMEOUT_ATTR, 2000)
                         .metadata(RESPONSE_TIMEOUT_ATTR, Duration.ofSeconds(3))
                         .uri("lb://notification-service"))
+                .route("composition-service", route -> route
+                        .path("/api/task-summaries/**")
+                        .filters(filters -> filters
+                                .requestRateLimiter(config -> config
+                                        .setRateLimiter(gatewayRateLimiter)
+                                        .setKeyResolver(clientIpKeyResolver)
+                                        .setStatusCode(HttpStatus.TOO_MANY_REQUESTS))
+                                .circuitBreaker(config -> config
+                                        .setName("composition-service-gateway-circuit-breaker")
+                                        .setFallbackUri("forward:/fallback/composition-service")))
+                        .metadata(CONNECT_TIMEOUT_ATTR, 2000)
+                        .metadata(RESPONSE_TIMEOUT_ATTR, Duration.ofSeconds(3))
+                        .uri("lb://composition-service"))
                 .build();
     }
 
